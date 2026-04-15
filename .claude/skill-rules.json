@@ -36,6 +36,22 @@
       ],
       "skill": "writing-plans",
       "hint": "Sounds like planning. Use /writing-plans (Superpowers) after spec is done."
+    },
+    {
+      "keywords": [
+        "where was i", "continue from", "resume", "pick up", "session brief",
+        "接棒", "繼續", "從哪裡", "上次進度", "session 交接"
+      ],
+      "skill": "start",
+      "hint": "Looks like you're resuming work. Run /start to read /brief/session-brief.md and get a summary of where the last session left off."
+    },
+    {
+      "keywords": [
+        "end session", "wrap up", "save progress", "checkpoint", "before clear",
+        "收工", "存進度", "交棒", "下班", "clear 前", "中斷"
+      ],
+      "skill": "brief",
+      "hint": "Looks like you want to end/checkpoint the session. Run /brief to write a comprehensive session-brief.md and commit it (so the next session can /start and resume)."
     }
   ]
 }

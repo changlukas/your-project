@@ -52,6 +52,43 @@ cp /tmp/superpowers/LICENSE <this-repo>/.claude/SUPERPOWERS_LICENSE
 
 ---
 
+## t0ddharris/claude-code-skills
+
+- **Source**: https://github.com/t0ddharris/claude-code-skills
+- **License**: MIT（完整條款見 `.claude/T0DDHARRIS_LICENSE`）
+- **Copyright**: © 2026 Todd Harris
+- **整合方式**: Vendor（複製 upstream 內容至本 repo）
+
+### Vendored Skills（3 個：session handover）
+
+| Skill | 用途 |
+|---|---|
+| `brief` | 寫 session-brief.md 並 commit+push 到 git（session 結束 checkpoint）|
+| `start` | 讀 session-brief.md + git status，給下一 session 摘要 |
+| `reflect` | 掃對話中的修正 / approval / pattern，提議 skill 更新（continuous learning）|
+
+### 使用流程
+
+```
+session 進行中
+  ↓（準備 /clear 或 session 要結束）
+/brief  →  寫 /brief/session-brief.md + commit + push
+  ↓ /clear 或新 session
+/start  →  讀 /brief/session-brief.md + git log，回報進度
+  ↓ 繼續工作
+(可選) /reflect  →  掃對話找 correction，提議 skill 改動
+```
+
+### 輸出檔案路徑
+
+- `/brief/session-brief.md` — project root 下的 `brief/` 目錄。非 gitignored（是 commit 的一部分）。**不會動到 `.specify/` 或 `.claude/`**。
+
+### 本地修改
+
+無。原封複製 3 個 SKILL.md。
+
+---
+
 ## forrestchang/andrej-karpathy-skills
 
 - **Source**: https://github.com/forrestchang/andrej-karpathy-skills
