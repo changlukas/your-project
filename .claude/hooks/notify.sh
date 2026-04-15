@@ -1,5 +1,6 @@
 #!/bin/bash
 # Notification hook: triggered when Claude needs attention (e.g., permission prompt)
+command -v jq >/dev/null 2>&1 || exit 0
 INPUT=$(cat)
 MESSAGE=$(echo "$INPUT" | jq -r '.message // "Claude needs your attention"')
 

@@ -35,4 +35,14 @@ echo "=== Post-response verification ==="
 # echo "--- verilator lint ---"
 # verilator --lint-only *.sv 2>&1 | tail -20
 
+# ---------------------------------------------------------
+# Opt-in blocking: uncomment to refuse turn end if tests fail.
+# (Requires jq + your test runner. Replace `npm test` with your command.)
+# ---------------------------------------------------------
+# command -v jq >/dev/null 2>&1 || exit 0
+# if ! npm test >/dev/null 2>&1; then
+#   jq -n '{decision: "block", reason: "Tests are failing. Fix before ending the turn."}'
+#   exit 0
+# fi
+
 exit 0

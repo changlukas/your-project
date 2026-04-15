@@ -1,0 +1,3 @@
+# State directory for opt-in phase/scope enforcement.
+# Files in this directory (e.g., phase.json) are per-session and not committed.
+# See .claude/scripts/scope to manage scope state.

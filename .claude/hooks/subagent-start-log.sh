@@ -2,6 +2,7 @@
 # SubagentStart hook: log agent_type + agent_id when a subagent starts.
 # Event payload schema (per Claude Code docs):
 #   { session_id, hook_event_name: "SubagentStart", agent_id, agent_type, ... }
+command -v jq >/dev/null 2>&1 || exit 0
 INPUT=$(cat)
 AGENT=$(echo "$INPUT" | jq -r '.agent_type // "unknown"')
 AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // ""')

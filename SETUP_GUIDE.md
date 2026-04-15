@@ -107,6 +107,36 @@ specify init . --ai claude --ai-skills
 本 template 的目錄結構已對齊 spec-kit 官方慣例（`.specify/memory/`、`.specify/specs/`），
 可與 specify-cli 無縫共存。
 
+### Step 7: 推薦 Claude Code Plugins（可選）
+
+下列第三方 plugins 可進一步補強 enforcement，搭配本 template 的 hooks：
+
+```bash
+# TDD Iron Law 強制（多語言 test runner 整合）
+/plugin install tdd-guard
+
+# Plan review 視覺 UI（在 ExitPlanMode 觸發瀏覽器標註）
+/plugin marketplace add backnotprop/plannotator
+/plugin install plannotator
+```
+
+完整資訊：
+- [nizos/tdd-guard](https://github.com/nizos/tdd-guard) (MIT)
+- [backnotprop/plannotator](https://github.com/backnotprop/plannotator) (MIT/Apache-2.0)
+
+### Step 8: pre-commit framework（強烈建議）
+
+```bash
+pipx install pre-commit  # 或: pip install --user pre-commit
+pre-commit install
+```
+
+啟用後，commit 時自動跑：
+- `conventional-pre-commit` — commit message 格式驗證
+- `gitleaks` — 已知 secret 模式掃描
+
+`bootstrap.sh` 會嘗試自動安裝，失敗時手動跑上面兩行即可。
+
 ---
 
 ## settings.json 說明
@@ -114,12 +144,14 @@ specify init . --ai claude --ai-skills
 預設配置包含：
 
 - `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`: 啟用 Agent Teams
-- `permissions.deny`: 擋掉 rm -rf, git push --force, push/rebase to main
-- `hooks.PreToolUse`: 阻止在 main branch 上編輯檔案
-- `hooks.PostToolUse`: 每次編輯後自動跑 formatter
+- `permissions.deny`: 擋掉 rm -rf、git push --force、push/rebase main、reset --hard、clean -fdx 等
+- `hooks.UserPromptSubmit`: 自動 skill 路由（讀 `.claude/skill-rules.json`）
+- `hooks.PreToolUse`: branch enforcement（feat/chore/docs/bugfix only）+ scope enforcement（opt-in）
+- `hooks.PostToolUse`: 每次編輯後自動跑 formatter（按語言 opt-in）
 - `hooks.Stop`: 每次回覆結束跑 lint/type-check
-- `hooks.SubagentStart/Stop`: 記錄 subagent 生命週期
+- `hooks.SubagentStart/Stop`: 記錄 subagent 生命週期 + 桌面通知
 - `hooks.Notification`: agent 需要輸入或完成時桌面通知
+- `hooks.WorktreeCreate`: 強制 worktree branch 命名符合 canonical pattern
 
 這些通常不需要改。
 

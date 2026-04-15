@@ -122,18 +122,36 @@ Code 專案 — `task-executor.md`（ephemeral subagent profile，每次 fresh d
 
 ---
 
-## Step 7: Spec Kit（預設啟用）
+## Step 7: Spec Kit + 推薦 Plugins（可選）
 
-本 template 的目錄結構已對齊 spec-kit 官方慣例（`.specify/memory/`、`.specify/specs/`），
-可直接與 specify-cli 共存。
+### Spec Kit
+本 template 目錄結構已對齊 spec-kit 官方慣例（`.specify/memory/`、`.specify/specs/`），可與 specify-cli 共存。
 
-詢問：「要安裝 specify-cli 以使用官方 slash commands 嗎？
-（`/speckit.constitution`、`/speckit.specify`、`/speckit.plan`、`/speckit.tasks`、`/speckit.implement`）
-本 template 已 vendor Superpowers 的 `/brainstorming`、`/writing-plans`、`/executing-plans`
-等 skills，可以不裝 CLI 直接用。」
+詢問：「要安裝 specify-cli 嗎？本 template 已 vendor Superpowers 的 `/brainstorming`、`/writing-plans`、`/executing-plans` 等 skills，可不裝 CLI 直接用。」
+- 要 → `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git && specify init . --ai claude --ai-skills`
+- 不要 → 跳過
 
-要 → 檢查 specify-cli → 安裝 → `specify init . --ai claude --ai-skills`
-不要 → 跳過（仍可用 Superpowers skills + `/write-document`）
+### Claude Code Plugins（強烈推薦）
+
+詢問：「要安裝以下兩個 plugin 嗎？它們補強我們的 enforcement：
+- **tdd-guard**（MIT）— TDD Iron Law 強制，阻擋沒有 failing test 就寫 production code
+- **plannotator**（MIT/Apache）— Plan review 視覺 UI
+
+兩者都是 well-maintained Claude Code plugins，非必須但建議裝。」
+
+- 要 →
+  ```
+  /plugin install tdd-guard
+  /plugin marketplace add backnotprop/plannotator
+  /plugin install plannotator
+  ```
+- 不要 → 跳過（之後可隨時 `/plugin install`）
+
+### Pre-commit framework（強烈建議）
+
+詢問：「要啟用 pre-commit framework 嗎？啟用後 commit 時自動驗證 conventional commit 格式 + 跑 gitleaks secret 掃描。」
+- 要 → `pipx install pre-commit && pre-commit install`（bootstrap.sh 已嘗試自動安裝）
+- 不要 → 跳過
 
 **Gate:** 確認 → 繼續
 

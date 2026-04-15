@@ -26,3 +26,5 @@ Thumbs.db
 .claude/agent-memory-local/       # 個人記憶（不共享）
 .claude/worktrees/                # worktree 工作目錄
 .claude/logs/                     # hook 產生的 logs
+.claude/state/*                   # opt-in scope/phase state (per-session)
+!.claude/state/.gitkeep           # but keep the directory placeholder

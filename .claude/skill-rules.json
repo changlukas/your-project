@@ -1,0 +1,41 @@
+{
+  "min_prompt_chars": 10,
+  "negative_keywords": [
+    "typo", "comment", "rename", "format", "quick",
+    "小改", "小修", "改個字", "拼字", "註解", "重命名"
+  ],
+  "rules": [
+    {
+      "keywords": [
+        "new feature", "implement", "add feature", "build a",
+        "新功能", "加功能", "新增功能", "做一個", "加一個", "寫一個", "實作", "開發"
+      ],
+      "skill": "brainstorming",
+      "hint": "This looks like a new feature request. Start with /brainstorming for spec-driven flow (HARD-GATE design before code). If this is a small change, ignore this hint."
+    },
+    {
+      "keywords": [
+        "fix bug", "bugfix", "broken", "regression", "crash", "error",
+        "修 bug", "修復", "壞掉", "故障", "錯誤", "報錯", "異常"
+      ],
+      "skill": "bugfix",
+      "hint": "This looks like a bug fix. Use /bugfix for the 4-phase Report → Analyze → Fix → Verify workflow. If this is a tiny one-line fix, ignore this hint."
+    },
+    {
+      "keywords": [
+        "document", "patent", "spec", "white paper", "tech report",
+        "文件", "白皮書", "專利", "技術報告", "規格書", "說明書"
+      ],
+      "skill": "write-document",
+      "hint": "This looks like a document task. Use /write-document for the document-specific 4-phase flow. If this is a small README edit, ignore this hint."
+    },
+    {
+      "keywords": [
+        "plan", "design", "architecture",
+        "設計", "規劃", "架構"
+      ],
+      "skill": "writing-plans",
+      "hint": "Sounds like planning. Use /writing-plans (Superpowers) after spec is done."
+    }
+  ]
+}

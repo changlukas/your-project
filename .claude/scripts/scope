@@ -1,0 +1,40 @@
+#!/bin/bash
+# Opt-in scope tool: manage .claude/state/phase.json to enable scope-enforce hook.
+# When state file exists, scope-enforce.sh blocks edits outside scope_paths.
+# When absent (default), scope-enforce silently allows everything.
+#
+# Usage:
+#   bash .claude/scripts/scope set <path>...   set scope, enable enforcement
+#   bash .claude/scripts/scope clear           remove state, disable enforcement
+#   bash .claude/scripts/scope show            display current scope (default)
+
+set -euo pipefail
+
+STATE=".claude/state/phase.json"
+
+case "${1:-show}" in
+  set)
+    shift
+    if [ $# -eq 0 ]; then
+      echo "usage: scope set <path>..." >&2
+      exit 1
+    fi
+    command -v jq >/dev/null 2>&1 || { echo "ERROR: jq required" >&2; exit 1; }
+    mkdir -p .claude/state
+    PATHS_JSON=$(printf '%s\n' "$@" | jq -R . | jq -s .)
+    jq -n --argjson p "$PATHS_JSON" --arg ts "$(date -Iseconds)" \
+      '{scope_paths: $p, started_at: $ts}' > "$STATE"
+    echo "scope set: $*"
+    ;;
+  clear)
+    rm -f "$STATE"
+    echo "scope cleared (enforcement disabled)"
+    ;;
+  show|*)
+    if [ -f "$STATE" ]; then
+      cat "$STATE"
+    else
+      echo "no scope set (enforcement disabled)"
+    fi
+    ;;
+esac

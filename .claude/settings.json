@@ -8,19 +8,43 @@
       "Bash(rm -rf *)",
       "Bash(git push --force*)",
       "Bash(git push * main)",
+      "Bash(git push * master)",
       "Bash(git checkout main && git merge*)",
+      "Bash(git checkout master && git merge*)",
       "Bash(git branch -D main)",
-      "Bash(git rebase * main)"
+      "Bash(git branch -D master)",
+      "Bash(git rebase * main)",
+      "Bash(git rebase * master)",
+      "Bash(git reset --hard origin*)",
+      "Bash(git clean -fdx*)",
+      "Bash(git checkout --force*)",
+      "Bash(git stash drop*)",
+      "Bash(git stash clear*)"
     ]
   },
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/skill-router.sh"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
           {
             "type": "command",
-            "command": "if [ \"$(git branch --show-current 2>/dev/null)\" = \"main\" ]; then echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Cannot edit files on main branch. Create a feature branch first.\"}}'; fi",
+            "command": "bash .claude/hooks/branch-enforce.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/scope-enforce.sh",
             "timeout": 5
           }
         ]
@@ -73,6 +97,16 @@
           {
             "type": "command",
             "command": "bash .claude/hooks/notify.sh"
+          }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/worktree-enforce.sh"
           }
         ]
       }
