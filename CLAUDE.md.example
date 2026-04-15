@@ -1,0 +1,21 @@
+# [專案名稱]
+
+[一句話描述]
+
+## Tech Stack
+- Language: [e.g. TypeScript / Python / Go]
+- Framework: [e.g. Next.js / FastAPI / none]
+- Build: [e.g. npm run build / make / cargo build]
+- Test: [e.g. npm test / pytest / go test ./...]
+- Lint: [e.g. npm run lint / ruff check / golangci-lint run]
+
+## Architecture
+- src/: [描述]
+- tests/: [描述]
+
+## Critical Rules
+- NEVER [最重要的禁止事項]
+- ALWAYS [最重要的必須事項]
+
+## Context References
+- [主題 A] 詳細規範: see docs/[topic].md

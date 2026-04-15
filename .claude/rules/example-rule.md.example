@@ -1,0 +1,9 @@
+---
+description: Git commit conventions
+paths: ["**/*"]
+---
+
+- Use conventional commit format: type(scope): description
+- Types: feat, fix, refactor, docs, test, chore, spec, plan, tasks
+- Keep subject under 72 characters
+- Write body explaining WHY, not WHAT

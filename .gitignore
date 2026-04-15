@@ -1,0 +1,28 @@
+# Local overrides
+CLAUDE.local.md
+
+# Environment
+.env
+.env.*
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+target/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/agent-memory-local/       # 個人記憶（不共享）
+.claude/worktrees/                # worktree 工作目錄
+.claude/logs/                     # hook 產生的 logs
