@@ -27,7 +27,7 @@
         "文件", "白皮書", "專利", "技術報告", "規格書", "說明書"
       ],
       "skill": "write-document",
-      "hint": "This looks like a document task. Use /write-document for the document-specific 4-phase flow. If this is a small README edit, ignore this hint."
+      "hint": "This looks like a document task. Use /write-document for the document-specific 5-phase flow (spec → structure → tasks → drafting cycle → final review). If this is a small README edit, ignore this hint."
     },
     {
       "keywords": [
