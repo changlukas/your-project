@@ -158,9 +158,7 @@ Hardware Data Temperature Sensing and Memory Tier Placement Control
 
 ### 3.4 通知機制與軟體協作
 
-評估引擎產生的放置建議透過 **hotlist** 傳遞給軟體。Hotlist 為 ring buffer 結構，每個 entry 包含區域識別碼（region ID）與建議方向（promote 或 demote）。軟體可透過兩種方式讀取 hotlist：中斷（interrupt）方式——當 hotlist 中的 entry 數量超過可配置的 watermark 時觸發中斷通知；或輪詢（polling）方式——軟體主動檢查 hotlist 是否有待處理的 entry。
-
-此通知路徑與 CXL 3.1 CHMU 的 hotlist ring buffer + interrupt/polling 機制在結構上相似。**本案的差異不在通知機制本身，而在 hint 的內容——CHMU 的 hotlist 只能包含已被存取的 region，而本案的 hotlist 可包含序列維度預測的、尚未被存取的 region。** 這是因為序列維度在觀察到溫度轉換事件後，可對尚未被任何運算單元存取的後繼區域施加加分，使其溫度分數跨越閾值而進入 hotlist。
+評估引擎產生的放置建議透過 **hotlist** 傳遞給軟體。Hotlist 為 ring buffer 結構，每個 entry 包含區域識別碼（region ID）與建議方向（promote 或 demote）。軟體可透過中斷（interrupt，watermark 觸發）或輪詢（polling）方式讀取。此通知機制為通用設計，不在此詳述。
 
 **感知與搬遷解耦**：評估引擎負責產生放置建議，但不直接執行搬遷。搬遷的決策權在軟體——軟體讀取 hotlist 後，綜合考量當前記憶體容量壓力、搬遷頻寬預算等因素，決定是否以及何時執行搬遷。搬遷本身透過既有的 DMA 機制完成。
 
