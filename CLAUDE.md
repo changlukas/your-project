@@ -8,9 +8,9 @@
 - Test: N/A (document verification via review workflow)
 
 ## Architecture
-- `hardware_hot_cold_sensing_patent_report.md`: 原始專利概念報告（在 parent directory）
-- `research-notes.md`: 前案研究 + 專利寫作風格研究（在 parent directory）
-- `review.md`: 主管回饋 + AI 討論記錄（在 parent directory）
+- `docs/patent/hardware_hot_cold_sensing_patent_report.md`: 原始專利概念報告（含 Wave 1 修訂）
+- `docs/patent/research-notes.md`: 前案研究 + 專利寫作風格研究
+- `docs/patent/review.md`: 主管回饋 + AI 討論記錄
 - `.specify/specs/`: Spec / Plan / Tasks per revision phase
 - `docs/reviews/`: Review reports and workflow findings
 - `.claude/skills/`: Workflow skills (write-document, review-document)
@@ -29,4 +29,4 @@
 - Patent pivot decision: see `docs/reviews/patent-report-review-2026-04-16.md`
 - Terminology table: see `.specify/specs/patent-revision-phase1/plan.md`
 - Interface contracts: see `.specify/specs/patent-revision-phase1/tasks.md`
-- Research findings: see `research-notes.md` (parent directory)
+- Research findings: see `docs/patent/research-notes.md`
