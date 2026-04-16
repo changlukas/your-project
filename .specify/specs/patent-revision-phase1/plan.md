@@ -153,14 +153,13 @@ Ch4 新穎進步（引用 Ch3 的演算法機制 + Markov 差異）
 Ch5 構想摘要（濃縮 Ch3 + Ch4）
 ```
 
-全部串行依賴，不可並行。
+內容上全串行依賴，但透過 interface contract 可部分並行。
 
 ## Wave Plan
 
-**Wave 1:** Ch1 背景
-**Wave 2:** Ch2 問題定義
-**Wave 3:** Ch3 解決方法
-**Wave 4:** Ch4 新穎進步
-**Wave 5:** Ch5 構想摘要
+**Wave 1:** Ch1 背景 ∥ Ch2 問題定義（並行，Ch2 引用 Ch1 概念時使用 interface contract placeholder，完成後 reconciliation）
+**Wave 2:** Ch3 解決方法（需要 Ch1 + Ch2 output）
+**Wave 3:** Ch4 新穎進步（需要 Ch3 output）
+**Wave 4:** Ch5 構想摘要（需要 Ch3 + Ch4 output）
 
-每個 Wave 完成後 Gate check 再進下一個。
+每個 Wave 完成後 Gate check 再進下一個。Interface contract 定義見 tasks.md。
