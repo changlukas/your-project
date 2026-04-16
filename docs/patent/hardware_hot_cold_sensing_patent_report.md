@@ -312,119 +312,108 @@ Hardware Data Temperature Sensing and Memory Tier Placement Control
 
 ### 習知 vs 本案對比
 
-以 CXL pooled memory 場景為例，對比習知做法（CXL 3.2 CHMU，記憶體裝置端感知）與本案（互連 / switch 層級感知）的架構差異。同樣的對比邏輯亦適用於晶片內互連場景（見 3.3 節）。
+本案的核心新穎性在於**演算法**——溫度狀態轉換序列的自主學習與預測——而非部署位置。以下對比聚焦於演算法層面的差異。
 
-**習知做法：CXL 3.2 CHMU — 各 Type 3 記憶體裝置端各自感知，回報 Host OS 決策**
+**CHMU（CXL 3.1 spec 定義的 Hotness Monitoring Unit）** 是目前最接近的硬體前案。其運作方式為：各 CXL Type 3 memory device 內的 CHMU 以有限數量的 counter 追蹤到達自己端的存取（支援 epoch-based 與 always-on 兩種模式，可配置 DPA region filtering、R/W filtering 與 downsampling），counter 超過閾值的 region 被加入 PCI BAR 中的 hotlist ring buffer，軟體可以 polling 或 interrupt（watermark / overflow）方式讀取，Host OS 讀取並彙整多個 device 的 hotlist 後決定搬遷。
 
-```
-  ┌────────┐       ┌────────┐
-  │ Host 0 │       │ Host 1 │
-  └───┬────┘       └───┬────┘
-      │                │
-  ════╪════════════════╪═══════════════════
-  ║           CXL Switch / Fabric        ║
-  ║     （僅路由轉發，不參與冷熱感知）     ║
-  ═══╤═══════════════╤═══════════════╤════
-     │               │               │
-  ┌──┴──────────┐ ┌──┴──────────┐ ┌──┴──────────┐
-  │CXL Type 3   │ │CXL Type 3   │ │CXL Type 3   │
-  │ Mem Dev 0   │ │ Mem Dev 1   │ │ Mem Dev 2   │
-  │             │ │             │ │             │
-  │ ┌────────┐  │ │ ┌────────┐  │ │ ┌────────┐  │
-  │ │ CHMU 0 │  │ │ │ CHMU 1 │  │ │ │ CHMU 2 │  │
-  │ └────┬───┘  │ │ └────┬───┘  │ │ └────┬───┘  │
-  └──────┼──────┘ └──────┼──────┘ └──────┼──────┘
-         │               │               │
-         │  各自回報      │  各自回報       │  各自回報
-         └───────┬───────┴───────┬───────┘
-                 │               │
-                 ▼               ▼
-            ┌─────────┐    ┌─────────┐
-            │ Host 0  │    │ Host 1  │   Host OS 彙整各 CHMU
-            │ OS 決策  │    │ OS 決策  │   的獨立報告後決策
-            └────┬────┘    └────┬────┘   含 OS 彙整路徑延遲
-                 │              │         跨 device 的空間/預測策略
-                 ▼              ▼         由 spec 未規定（impl-defined）
-               DMA 搬遷      DMA 搬遷
-```
+**本案** 的資料溫度評估引擎從三個維度——時間維度、空間維度、序列維度——對區域狀態表中的溫度分數進行更新。當任何區域的分數跨越提升或降級閾值時，構成溫度轉換事件，同時觸發空間維度（對相鄰區域加分）與序列維度（查詢行為學習表，對預測的後繼區域加分）。放置建議透過 hint queue（ring buffer）傳遞給軟體，支援 interrupt（watermark）或 polling 讀取。
 
-**CHMU 流程**：① 各 CXL Type 3 memory device 內的 CHMU 以有限數量的 counter 追蹤到達自己端的存取（追蹤本質為 imprecise；支援 epoch-based 與 always-on 兩種模式，可配置 DPA region filtering、R/W filtering 與 downsampling）→ ② counter 超過閾值的 region 被加入 PCI BAR 中的 hotlist ring buffer，軟體可以 polling 或 interrupt（watermark / overflow）方式讀取 → ③ Host OS 讀取並彙整多個 device 的 hotlist，決定搬遷 → ④ Host 透過 DMA 執行搬遷
-
-**本案：互連 / Switch 層級感知，冷熱感知計算單元主動評估，硬體即時輸出 hint**
-
-```
-  ┌────────┐       ┌────────┐
-  │ Host 0 │       │ Host 1 │
-  └───┬────┘       └───┬────┘
-      │                │
-  ════╪════════════════╪═══════════════════════
-  ║              CXL Switch / Fabric          ║
-  ║                                           ║
-  ║  ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓    ║
-  ║  ┃       資料溫度感知單元 【本案】     ┃────║──► IRQ
-  ║  ┃                                   ┃    ║
-  ║  ┃  旁路窺探所有 host 對所有 device   ┃ CSR║◁── Host
-  ║  ┃  的 CXL.mem request               ┃    ║    配置
-  ║  ┃                                   ┃    ║
-  ║  ┃  時間策略 + 空間策略 + 預測性策略   ┃    ║
-  ║  ┃  → 複合冷熱分數 → placement hint  ┃    ║
-  ║  ┃                                   ┃    ║
-  ║  ┃  全域可見：跨 host、跨 device      ┃    ║
-  ║  ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛    ║
-  ║                                           ║
-  ═══╤═══════════════╤═══════════════╤═════════
-     │               │               │
-  ┌──┴──────────┐ ┌──┴──────────┐ ┌──┴──────────┐
-  │ CXL Mem 0   │ │ CXL Mem 1   │ │ CXL Mem 2   │
-  └─────────────┘ └─────────────┘ └─────────────┘
-```
-
-**本案流程**：① 感知單元旁路窺探所有經過 switch 的 CXL.mem request（address + R/W type；在支援來源識別之互連實作中，可進一步擷取來源識別資訊）→ ② 三種策略即時更新區域狀態表中的冷熱分數 → ③ 分數跨越 promote/demote 閾值時，硬體產生 placement hint 並透過 IRQ 通知 Host → ④ Host 讀取 CSR 中的 hint，決定並執行搬遷
+**誠實聲明**：通知路徑在結構上相似——均為 ring buffer + interrupt/polling + 軟體讀取決策——差異在 hint 內容。本案的 hint 包含序列維度預測的結果，即尚未被存取但預測即將變熱的區域；CHMU 的 hotlist 僅包含已超過計數閾值的區域。
 
 **關鍵差異**：
 
-| 面向 | CHMU（習知） | 本案 |
-|------|-------------|------|
-| **感知位置** | 各 CXL Type 3 memory device 內部 | CXL switch / 互連的流量匯聚點 |
-| **可見範圍** | 僅到達該 device 的 request | 所有 host 對所有 device 的 request |
-| **跨 device 感知** | 不可能——Device 0 的 CHMU 看不到 Device 1 的流量 | 自然可見——switch 是所有流量的必經之路 |
-| **空間策略** | CXL 3.2 spec 未規定空間策略；CHMU 內部演算法為 implementation defined | 有——跨 device 的空間擴散偵測 |
-| **預測性策略** | CXL 3.2 spec 未規定預測性策略；CHMU 內部演算法為 implementation defined | 有——從跨 device 的冷熱轉換序列學習規律，主動預測 |
-| **衰減機制** | Epoch-based 模式在 epoch 結束時 snapshot/reset counter；always-on 模式持續計數至超過 threshold | 所有 region 的分數持續性週期右移遞減，反映即時活躍度變化 |
-| **多 host 聚合** | CHMU 位於 device 端，不區分 request 來源 | 在互連協定或實作支援來源識別之場景下，可進一步擷取來源識別資訊 |
-| **決策延遲** | CHMU 回報（支援 polling 或 interrupt）→ OS 讀取彙整 → OS 決策 | 硬體即時產生 hint → 中斷通知 Host |
-| **軟體負擔** | OS 需讀取並彙整多個 CHMU 的 hotlist、決策 | 硬體完成感知與評估，OS 只需回應 hint |
+| 面向 | CHMU（CXL 3.1） | 本案 |
+|------|-----------------|------|
+| **預測能力** | 無——僅回報已超過計數閾值的區域，屬於事後回報 | 有——行為學習表從溫度轉換事件序列中學習規律，可預測尚未被存取但即將變熱的區域 |
+| **多維度評估** | 單維度計數（存取頻率） | 三維度整合——時間維度（衰減式累計）、空間維度（鄰近擴散）、序列維度（轉換序列預測）寫入同一溫度分數 |
+| **可通知尚未被存取的區域** | 否——region 必須先被存取且 counter 超過閾值才會出現在 hotlist | 是——序列維度可在前驅區域發生溫度轉換時，對預測的後繼區域提前加分，使其進入 hint queue |
+| **可見範圍** | 僅到達該 device 的 request | 部署於互連時可見所有 host 對所有 device 的 request；部署於 MC domain 時可見範圍與 CHMU 相當 |
+| **跨 device 感知** | 不可能——Device 0 的 CHMU 看不到 Device 1 的流量 | 取決於部署位置——互連部署時自然可見，MC domain 部署時需軟體彙整 |
+| **衰減機制** | Epoch-based 模式在 epoch 結束時 snapshot/reset counter；always-on 模式持續計數至超過 threshold | 所有 region 的溫度分數持續性週期右移遞減，反映即時活躍度變化 |
 
 ### 習知技術分類
 
 | 類別 | 代表來源 | 做法 | 限制 |
 |------|---------|------|------|
-| OS fault-based 掃描 | Linux AutoNUMA、TPP (ASPLOS '23) | 定期將部分頁面 PTE 標記為 not-present，藉存取觸發的 page fault 判斷冷熱並決定搬遷 | 毫秒級輪詢，對 AI workload 反應太遲；消耗 CPU 資源 |
-| 記憶體端硬體計數 | NeoProf (MICRO '24) | 記憶體裝置端統計各 page 存取資訊（頻率、頻寬、讀寫比等），回報 OS | 感知在 off-chip，只看到流向自己端的流量；不自主決策 |
+| OS fault-based 掃描 | Linux AutoNUMA、TPP (ASPLOS '23) | 定期將部分頁面 PTE 標記為 not-present，藉存取觸發的 page fault 判斷溫度並決定搬遷 | 毫秒級輪詢，對 AI workload 反應太遲；消耗 CPU 資源 |
+| 記憶體端硬體計數 | NeoMem (MICRO '24) | 記憶體裝置端統計各 page 存取資訊（頻率、頻寬、讀寫比等），回報 OS | 感知在 off-chip，只看到流向自己端的流量；純計數，無預測能力 |
 | 軟體配置 / fault 驅動 | numactl、CUDA Unified Memory | numactl：程式設計師預先指定放置位置（靜態）；CUDA UM：GPU MMU 偵測到 page 不在本端時觸發 fault 驅動遷移（被動反應式） | 靜態配置無法適應動態存取模式；fault 驅動需等到實際存取 miss 才觸發，無預測能力 |
-| OS 軟體 page metadata | Intel US12,443,537 | 在 kernel memory 中維護 page hotness metadata，以 callback 與 region filtering 降低偵測開銷 | OS 軟體層級方案；不含空間或預測性策略；不在晶片內互連中感知 |
-| CXL 裝置端硬體監測 | CXL 3.2 CHMU (Dec 2024) | 各 CXL Type 3 memory device 內嵌 Hotness Monitoring Unit，支援 epoch-based 與 always-on 兩種模式，可配置 DPA region filtering、R/W filtering 與 downsampling；透過 PCI BAR hotlist ring buffer 回報（支援 polling / interrupt） | 各 device 獨立監測，僅看到流向自己端的流量；CXL 3.2 spec 未規定空間或預測性策略（內部演算法為 implementation defined）；host 需彙整多個 CHMU 報告；感知不在互連層級 |
-| 存取頻率預測 | Huawei US12,379,861 | 根據區塊鄰接關係以預測模型推估存取頻率 | Storage 語境；非晶片內互連層級；非硬體狀態表的序列規律學習 |
-| 純軟體 tiering | Chrono (EuroSys '25) | 以 timer 精確測量 page access frequency，自動調參進行冷熱分類 | 不在硬體層執行，反應速度受限於軟體路徑延遲 |
-| 推理/訓練協同調度 | Sirius (USENIX ATC '25) | runtime 軟體層 selective eviction：profiling hot/cold 訓練資料，inference burst 來時將 cold pages 搬至 host memory | 純軟體方案，需 runtime instrumentation；以軟體啟發式做 eviction 決策；不含序列規律預測；針對 GPU 場景而非通用互連層級 |
+| OS 軟體 page metadata | Intel US12,443,537 | 在 kernel memory 中維護 page hotness metadata，以 callback 與 region filtering 降低偵測開銷 | OS 軟體層級方案；不含空間或序列維度評估 |
+| CXL 裝置端硬體監測 | CXL 3.1 CHMU | 各 CXL Type 3 memory device 內嵌 Hotness Monitoring Unit，透過 hotlist ring buffer 回報（支援 polling / interrupt） | 各 device 獨立監測；CXL 3.1 spec 未規定空間或序列維度評估（內部演算法為 implementation defined）；純計數，無預測能力 |
+| 存取頻率預測 | Huawei US12,379,861 | 以 CNN+LSTM 模型根據區塊歷史存取頻率時間序列預測未來存取頻率 | Storage 語境；需要 training data 與 inference 計算；非硬體狀態表的序列規律學習 |
+| 純軟體 tiering | Chrono (EuroSys '25) | 以 timer 精確測量 page access frequency，自動調參進行溫度分類 | 不在硬體層執行，反應速度受限於軟體路徑延遲 |
+| 推理/訓練協同調度 | Sirius (USENIX ATC '25) | runtime 軟體層 selective eviction：profiling 訓練資料溫度，inference burst 來時將 cold pages 搬至 host memory | 純軟體方案，需 runtime instrumentation；不含序列規律預測 |
 | 延遲感知 tiering | Colloid (SOSP '24) | 基於各 tier 的實測存取延遲（loaded latency）在 tiers 間平衡熱資料分布 | 不在硬體層執行；依賴處理器端的延遲測量（如 CHA） |
+| GPU 端硬體存取計數 | NVIDIA GPU Access Counter (Volta+), US10,361,722 | GPU 內建 per-page 硬體存取計數器，超過閾值時通知 driver 進行 page migration | 純計數，無預測能力；僅具 single-endpoint 可見性（只看到 GPU 端存取）；不含空間或序列維度評估 |
+| HBM cache mode | Intel KNL MCDRAM, 各家 HBM cache 實作 | 硬體將 HBM 作為 DDR 的 last-level cache，以 cacheline 粒度自動管理搬遷 | Tag overhead 佔用 HBM 容量；cacheline 粒度與 AI workload 的 tensor/expert 粒度不匹配；工作集略超 HBM 容量時發生 thrashing；無預測能力，僅依據 LRU 等被動替換策略 |
+| Markov Prefetcher | Joseph & Grunwald (ISCA '97), US5,778,436A | 以 prediction table 記錄 cache miss address 序列，predecessor/successor 結構，在 miss 發生時預測下一個可能 miss 的 cacheline | 學習的是 **address miss 序列**而非溫度狀態轉換序列；每次 cache miss 都觸發學習（高雜訊）；設計目標為 cache prefetch 而非跨 tier migration；缺乏聚合與信心度確認機制，不適用於高成本搬遷決策 |
+| ML-based 預測 | AMD US12,174,742 (LSTM), Huawei US12,379,861 (CNN+LSTM), RecMG (LSTM for embeddings) | 以機器學習模型（LSTM、CNN+LSTM）從歷史存取模式預測未來存取頻率或 page 溫度 | 需要 training data；需要 inference 計算資源；需要 per-model / per-workload 配置調校。與本案的 lightweight table-based 方法屬於根本不同的技術路線 |
+| RL-based adaptive tiering | ArtMem (ISCA '25) | 以 reinforcement learning agent 動態調整 migration threshold，最佳化搬遷策略 | 學習的是最佳 **policy parameters**（promotion/demotion threshold），而非 region-to-region 的溫度轉換序列；需要 training 過程 |
 | Cache replacement | ARC (FAST '03)、LIRS (SIGMETRICS '02) | Cache 內部的替換決策演算法 | 僅處理 cacheline 粒度的 cache 內部管理，不涉及跨記憶體層級搬遷 |
 
 ### 新穎性
 
-1. **互連 / 流量匯聚點的感知位置**：將冷熱感知點設置在互連的流量匯聚點（晶片內互連或 CXL switch），以旁路窺探方式擷取存取請求資訊。此位置能同時觀察所有來源對所有記憶體的存取流量。現有最接近的硬體方案（CXL 3.2 CHMU）將感知置於記憶體裝置端，各 device 僅看到流向自己的流量，無法觀察跨 device 的全域畫面
+1. **溫度狀態轉換序列的自主學習與預測**：行為學習表自主觀察溫度轉換事件的先後順序（前驅/後繼/信心度），重複出現的對應關係累積信心度成為已確認的規律，長期未再出現則信心度衰減至自動失效。當新的溫度轉換事件發生時，評估引擎以該區域為前驅查詢行為學習表，對信心度超過確認閾值的後繼區域提前加分——實現對**尚未被存取**區域的溫度預測。此為所有已知前案均不具備的能力：CHMU、NeoMem、GPU Access Counter 僅做事後計數；AutoNUMA、TPP 依賴 fault 觸發的被動掃描；Markov Prefetcher 學習的是 address miss 序列而非溫度狀態轉換序列，且缺乏聚合過濾機制；ML-based 方案（AMD LSTM、Huawei CNN+LSTM、RecMG）需要 training data 與 inference 計算；ArtMem 學習的是 policy parameters 而非轉換序列。本案是唯一能在資料尚未被存取前預測其溫度轉換方向的方案。
 
-2. **冷熱感知計算單元的統一架構**：將時間、空間、預測性三種策略整合於同一個計算單元中——時間策略持續累加，空間策略在冷轉熱時對鄰近 region 累加，預測性策略在冷轉熱時查 行為學習表 對後繼 region 累加。三者寫入同一個 score 欄位，形成單一的複合冷熱評估。現有方案沒有將三者整合在同一架構中
+2. **多維度評估的統一溫度分數架構**：時間維度（衰減式累計反映即時活躍度）、空間維度（鄰近區域擴散偵測）、序列維度（轉換序列預測）三者的加分結果共同寫入區域狀態表中的同一個溫度分數欄位，形成單一的複合溫度評估。現有方案中，無論是 CHMU 的單維度計數、NeoMem 的多指標分離回報、還是 ML-based 方案的模型輸出，均未將多個評估維度整合於同一硬體分數架構中。
 
-3. **冷轉熱序列規律的硬體自主學習**：作為冷熱感知計算單元中預測性策略的核心，行為學習表自主觀察冷熱轉換的先後順序，重複出現的對應關係累積為已確認的規律，長期未再出現則自動失效。預測的是 region 的冷熱狀態轉換序列，而非位址的算術規律
+3. **部署位置的彈性**：資料溫度評估引擎的演算法不依賴於特定部署位置。可部署於晶片內互連的流量匯聚點（觀察跨 MC domain 的全域流量）、MC domain 內部（觀察範圍與 CHMU 相當）、CXL switch（觀察跨 device 流量）、或以軟體/韌體形式實現。部署位置影響可見範圍但不改變核心演算法。此彈性使同一技術方案可適用於不同系統架構。
 
 ### 進步性
 
-1. **硬體速度的主動式感知**：感知單元持續評估所有被追蹤的 region，不需等待 miss 或 OS 輪詢觸發，反應延遲遠低於軟體方案的毫秒級
+1. **預測式搬遷**：現有方案只能在資料已被存取後回報其溫度狀態；本案可在資料尚未被存取前預測其溫度轉換方向。搬遷因此可在 critical path 之外提前進行，避免存取時才發現資料不在近端記憶體的延遲代價。
 
-2. **全域可見性帶來更精確的決策**：在互連上觀察，能看到跨運算單元、跨記憶體層級的完整存取畫面，避免單一端點觀察的資訊不完整
+2. **Lightweight 通用方案**：不需要 training data（vs ML 路線的 AMD LSTM、Huawei CNN+LSTM、RecMG）、不需要 per-model 配置（vs Pre-gated MoE、FineMoE 等 model-specific 方案）、不需要離線 profiling（vs MoE-Infinity、FAE 等需要事先 profiling 的方案）。行為學習表以固定大小的硬體 table 在運行期間自主學習，適用於任何具有可學習溫度轉換規律的 workload。
 
-3. **與現有記憶體管理機制互補**：感知單元只產生 placement hint，軟體決定是否及如何執行搬遷，不替代現有架構
+3. **與現有機制互補**：評估引擎只產生放置建議（placement hint），不替代現有記憶體管理機制。軟體決定是否及如何執行搬遷，可與 OS page migration、CUDA Unified Memory、CXL memory pooling 等既有機制共存。
+
+### PE 表（Patentability Evaluation）
+
+以核心特徵——溫度狀態轉換序列學習（X）與多維度統一溫度分數（Y）——對比最具威脅性的前案：
+
+| 面向 | 本案 | Markov Prefetcher (ISCA '97) | CHMU (CXL 3.1) | Huawei US12,379,861 (CNN+LSTM) | ArtMem (ISCA '25) |
+|------|------|------------------------------|-----------------|--------------------------------|-------------------|
+| **學習對象** | 溫度狀態轉換序列 | Address miss 序列 | 無（純計數） | 存取頻率時間序列 | Migration policy parameters |
+| **預測目標** | 下一個即將發生溫度轉換的區域 | 下一個可能 miss 的 cacheline | 無 | 未來存取頻率 | 最佳 promotion threshold |
+| **學習方法** | Table-based，僅由溫度轉換事件觸發 | Table-based，每次 cache miss 觸發 | — | CNN+LSTM model training | RL agent training |
+| **是否需要 training data** | 否 | 否 | — | 是 | 是 |
+| **輸入過濾** | 聚合 + 閾值（僅溫度轉換事件觸發學習） | 無（每次 miss 都觸發） | — | 無（所有存取事件） | 無（所有 migration 事件） |
+| **信心度確認機制** | 有——信心度計數器，需超過確認閾值才產生預測 | 無 | — | Model confidence（隱式） | 無（直接輸出 policy） |
+| **應用領域** | 跨 tier migration | Cache prefetch | 裝置端溫度回報 | Storage tier placement | DRAM-CXL migration |
+| **多維度整合** | 是——時間+空間+序列寫入同一分數 | 否——僅 address 序列 | 否——僅計數 | 否——僅頻率預測 | 否——僅 threshold 調整 |
+
+### 103 防禦論述
+
+**最可能的審查意見組合**：審查委員可能結合 Markov Prefetcher（predecessor/successor table 結構）與任何記憶體 tiering 前案（如 CHMU、AutoNUMA、TPP），主張本案為已知技術的顯而易見組合。
+
+**防禦要點**：
+
+第一，**聚合與過濾機制**。Markov Prefetcher 在每次 cache miss 時觸發學習，因為 cache miss 本身即為需要回應的事件（prefetch 的目的是減少 miss penalty）。本案的行為學習表僅在溫度轉換事件發生時觸發學習——而溫度轉換事件是經過時間維度的衰減式累計與閾值過濾後才產生的聚合結果。此聚合機制是將 Markov 結構從 cache prefetch 遷移至 tier migration 領域時必需的非顯而易見改進：cache prefetch 的成本低（一次 cacheline fetch），容許高 false positive rate；tier migration 的成本高（數十 KB 至數百 MB 的資料搬遷），不容許頻繁的錯誤預測。
+
+第二，**學習對象的本質差異**。Markov Prefetcher 學習的是 address miss 序列——具體的記憶體位址之間的先後關係。本案學習的是溫度狀態轉換序列——region 從低溫度到高溫度的狀態變化之間的先後關係。前者是位址空間中的序列規律，後者是溫度狀態空間中的序列規律。此差異並非簡單的「把 address 換成 region」，而是觀察層級的根本轉換：從每次 miss 事件上升到經過聚合確認的狀態轉換事件。
+
+第三，**成本不對稱性要求信心度確認**。本案的行為學習表包含信心度計數器與確認閾值機制——對應關係必須被重複觀測到足夠次數才會用於預測。Markov Prefetcher 不具備此機制，因為 prefetch 的錯誤成本僅為一次無用的 cache fetch。Tier migration 的錯誤成本（不必要的大規模資料搬遷）要求更高的預測確信度，此信心度確認機制是因應成本不對稱性而生的技術貢獻。
+
+**參考先例**：AMD US12,174,742 以 method patent 形式保護 LSTM-based page placement prediction 的特定演算法，通過 35 U.S.C. §101 審查。本案同樣以特定演算法（table-based 溫度狀態轉換序列學習）應用於具體技術領域（記憶體層級放置），屬相同類型的可專利主題。
+
+### 適用範圍與限制
+
+**適用條件**：
+
+- 運行期間存取模式以毫秒至秒級動態變化，且變化並非完全隨機——存在可從歷史溫度轉換事件序列中學習的統計規律
+- 資料總量超過近端記憶體容量，需要跨層級放置決策
+- 存取模式變化速度快於 OS 掃描週期（否則 AutoNUMA/TPP 等 OS 方案已足夠）
+
+**不適用情境**：
+
+- 靜態或 compile-time 即可確定的存取序列（如固定順序的 layer-by-layer inference，可直接以靜態排程處理）
+- 線性增長模式（如 sequential scan，不產生溫度轉換事件）
+- 變化週期在秒級以上的緩慢模式（OS 軟體方案已足以應對）
+
+**行為學習表預測品質的影響因素**：
+
+- **轉換序列的重複性**：重複性越高，信心度累積越快，預測準確率越高。典型有利場景為 MoE 模型中 expert 的啟用序列——同一 routing pattern 在多次 inference 中重複出現
+- **Batch serving 交錯程度**：多個 request 的 expert 啟用序列交錯時，行為學習表觀察到的序列可能混雜多個 request 的 pattern，增加雜訊。信心度過濾機制可部分緩解此問題——真正重複的規律仍會累積信心度，而雜訊產生的偶發對應關係則因信心度不足而不被採用
 
 ---
 
